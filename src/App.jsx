@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
+const API_BASE_URL = "https://ai-grocery-optimizer.onrender.com";
+
 function App() {
   // Night mode: remembers your choice, otherwise follows the device setting
   const [darkMode, setDarkMode] = useState(() => {
@@ -234,7 +236,7 @@ function App() {
     setOptimized(false);
 
     try {
-      const res = await fetch("/api/optimise", {
+      const res = await fetch(`${API_BASE_URL}/api/optimise`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: groceryItems, budget }),
