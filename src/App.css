@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+/* Google Fonts loaded non-blocking from index.html */
 
 /* =====================================================
    THEME TOKENS  (light = sky blue, dark = night blue)
@@ -88,7 +88,8 @@ html {
 }
 
 body {
-  font-family: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* system-ui first → instant text render; Plus Jakarta Sans swaps in when loaded */
+  font-family: system-ui, -apple-system, "Segoe UI", "Plus Jakarta Sans", sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -126,8 +127,22 @@ button:disabled {
 .app *,
 .app *::before,
 .app *::after {
+  /* Removed universal transition — applied only to interactive elements below */
+}
+
+/* Only transition interactive/themed elements, not every node */
+.app button,
+.app input,
+.app select,
+.app .nav-item,
+.app .card,
+.app .sidebar,
+.app .header,
+.app .grocery-item,
+.app .stat-card,
+.app .progress-bar {
   transition-property: background-color, border-color, color, box-shadow, transform, opacity;
-  transition-duration: 0.25s;
+  transition-duration: 0.2s;
   transition-timing-function: ease;
 }
 
