@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-const API_BASE_URL = "https://ai-grocery-optimizer.onrender.com";
+const API_BASE_URL = "https://ai-grocery-optimizer-live.onrender.com";
 
 function App() {
   // Night mode: remembers your choice, otherwise follows the device setting
