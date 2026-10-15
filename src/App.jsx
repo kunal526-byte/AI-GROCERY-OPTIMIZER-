@@ -25,6 +25,64 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Authentication state
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("grocery_user");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "signup"
+  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
+  const [authError, setAuthError] = useState("");
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    if (!authForm.email || !authForm.password) {
+      setAuthError("Please fill in email and password.");
+      return;
+    }
+    const name = authForm.name.trim() || authForm.email.split("@")[0] || "User";
+    const userData = {
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      email: authForm.email,
+      role: "BSc AI Student",
+    };
+    try {
+      localStorage.setItem("grocery_user", JSON.stringify(userData));
+    } catch {}
+    setUser(userData);
+    setShowAuthModal(false);
+    setAuthForm({ name: "", email: "", password: "" });
+    setAuthError("");
+  };
+
+  const handleDemoLogin = () => {
+    const demoUser = {
+      name: "Kunal",
+      email: "kunal@student.edu",
+      role: "BSc AI Student",
+    };
+    try {
+      localStorage.setItem("grocery_user", JSON.stringify(demoUser));
+    } catch {}
+    setUser(demoUser);
+    setShowAuthModal(false);
+    setAuthError("");
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem("grocery_user");
+    } catch {}
+    setUser(null);
+    setShowProfileMenu(false);
+  };
+
   const [budget, setBudget] = useState(2000);
 
   const [newItem, setNewItem] = useState({
@@ -332,16 +390,34 @@ function App() {
             </button>
           </div>
 
-          <div className="user-mini">
-            <div className="avatar">K</div>
-
-            <div>
-              <strong>Kunal</strong>
-              <small>BSc AI Student</small>
+          {user ? (
+            <div className="user-mini" onClick={() => setShowProfileMenu(!showProfileMenu)} style={{ cursor: "pointer" }} title="Click for profile options">
+              <div className="avatar">{(user.name || "U")[0].toUpperCase()}</div>
+              <div>
+                <strong>{user.name}</strong>
+                <small>{user.role || "BSc AI Student"}</small>
+              </div>
+              <button
+                className="user-logout-icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLogout();
+                }}
+                title="Log out"
+                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "16px" }}
+              >
+                🚪
+              </button>
             </div>
-
-            <span>•••</span>
-          </div>
+          ) : (
+            <div className="user-mini user-signin-prompt" onClick={() => setShowAuthModal(true)} style={{ cursor: "pointer" }} title="Click to Sign In">
+              <div className="avatar" style={{ background: "var(--primary)" }}>👤</div>
+              <div>
+                <strong>Guest Mode</strong>
+                <small style={{ color: "var(--primary)" }}>Click to Sign In →</small>
+              </div>
+            </div>
+          )}
 
         </div>
       </aside>
@@ -398,18 +474,50 @@ function App() {
               <span></span>
             </button>
 
-            <div className="profile">
-              <div className="avatar">
-                K
-              </div>
+            {user ? (
+              <div className="profile-container" style={{ position: "relative" }}>
+                <div
+                  className="profile"
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  style={{ cursor: "pointer" }}
+                  title="Account menu"
+                >
+                  <div className="avatar">
+                    {(user.name || "U")[0].toUpperCase()}
+                  </div>
 
-              <div className="profile-info">
-                <strong>Kunal</strong>
-                <small>Student</small>
-              </div>
+                  <div className="profile-info">
+                    <strong>{user.name}</strong>
+                    <small>{user.role || "Student"}</small>
+                  </div>
 
-              <span>⌄</span>
-            </div>
+                  <span>⌄</span>
+                </div>
+
+                {showProfileMenu && (
+                  <div className="profile-dropdown-menu">
+                    <div className="dropdown-user-header">
+                      <strong>{user.name}</strong>
+                      <small>{user.email || "student@university.edu"}</small>
+                    </div>
+                    <div className="dropdown-divider"></div>
+                    <button
+                      className="dropdown-logout-btn"
+                      onClick={handleLogout}
+                    >
+                      🚪 Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                className="signin-header-btn"
+                onClick={() => setShowAuthModal(true)}
+              >
+                🔑 Sign In
+              </button>
+            )}
 
           </div>
 
@@ -1241,6 +1349,114 @@ function App() {
 
         </div>
 
+      )}
+
+      {/* AUTHENTICATION MODAL */}
+      {showAuthModal && (
+        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
+          <div className="modal auth-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="modal-icon">👤</div>
+                <div>
+                  <h2>{authMode === "login" ? "Sign In" : "Create Account"}</h2>
+                  <p>{authMode === "login" ? "Access your grocery budget & list" : "Start optimizing your grocery budget"}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="cancel-button"
+                style={{ padding: "6px 12px", minWidth: "auto" }}
+                onClick={() => setShowAuthModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {authError && (
+              <div className="alert-box" style={{ marginBottom: "16px" }}>
+                ⚠️ {authError}
+              </div>
+            )}
+
+            <form onSubmit={handleAuthSubmit}>
+              {authMode === "signup" && (
+                <label>
+                  Full Name
+                  <input
+                    type="text"
+                    placeholder="e.g. Kunal"
+                    value={authForm.name}
+                    onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                  />
+                </label>
+              )}
+
+              <label>
+                Email Address
+                <input
+                  type="email"
+                  placeholder="student@university.edu"
+                  required
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                />
+              </label>
+
+              <label>
+                Password
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  required
+                  value={authForm.password}
+                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                />
+              </label>
+
+              <div className="auth-actions-group">
+                <button type="submit" className="primary-button" style={{ width: "100%", justifyContent: "center" }}>
+                  {authMode === "login" ? "Sign In →" : "Create Account →"}
+                </button>
+
+                <button
+                  type="button"
+                  className="demo-login-btn"
+                  onClick={handleDemoLogin}
+                >
+                  ⚡ Quick Demo Login (Kunal - BSc AI)
+                </button>
+              </div>
+
+              <div className="auth-toggle-footer">
+                {authMode === "login" ? (
+                  <span>
+                    Don't have an account?{" "}
+                    <button
+                      type="button"
+                      className="auth-link-btn"
+                      onClick={() => { setAuthMode("signup"); setAuthError(""); }}
+                    >
+                      Sign Up
+                    </button>
+                  </span>
+                ) : (
+                  <span>
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      className="auth-link-btn"
+                      onClick={() => { setAuthMode("login"); setAuthError(""); }}
+                    >
+                      Sign In
+                    </button>
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>
