@@ -7,8 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "100kb" }));
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const PORT = process.env.PORT || 5000;
 
 const SYSTEM_PROMPT = `You are a grocery budget optimiser for shoppers in India (prices in INR).
@@ -129,6 +127,64 @@ function applyDecisions(items, decisions) {
     .filter(Boolean);
 }
 
+async function callAI({ budget, items }) {
+  const rawGroqKey = process.env.GROQ_API_KEY || (process.env.GEMINI_API_KEY?.trim().startsWith("gsk_") ? process.env.GEMINI_API_KEY : null);
+  const rawGeminiKey = process.env.GEMINI_API_KEY?.trim().startsWith("AIza") ? process.env.GEMINI_API_KEY : null;
+
+  const payload = {
+    budget,
+    items: items.map(({ id, name, quantity, unit, price, category, protein }) => ({
+      id, name, quantity, unit, price, category, protein,
+    })),
+  };
+
+  // If a Groq key is present (or passed in GEMINI_API_KEY by mistake):
+  if (rawGroqKey) {
+    const groqKey = rawGroqKey.trim();
+    const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${groqKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: JSON.stringify(payload) },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || `Groq API returned HTTP ${res.status}`);
+    }
+    return data.choices?.[0]?.message?.content;
+  }
+
+  // If a Gemini key is present:
+  if (rawGeminiKey) {
+    const ai = new GoogleGenAI({ apiKey: rawGeminiKey.trim() });
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const response = await ai.models.generateContent({
+      model,
+      contents: JSON.stringify(payload),
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        temperature: 0.3,
+      },
+    });
+    return response.text;
+  }
+
+  throw new Error("No valid AI API key found. Please set GROQ_API_KEY on Render.");
+}
+
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/api/optimise", async (req, res) => {
@@ -138,25 +194,7 @@ app.post("/api/optimise", async (req, res) => {
   const { items, budget } = req.body;
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: JSON.stringify({
-        budget,
-        items: items.map(
-          ({ id, name, quantity, unit, price, category, protein }) => ({
-            id, name, quantity, unit, price, category, protein,
-          })
-        ),
-      }),
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-        temperature: 0.3,
-      },
-    });
-
-    const text = response.text;
-
+    const text = await callAI({ budget, items });
     const parsed = parseJson(text);
     if (!Array.isArray(parsed.decisions)) throw new Error("Bad AI response shape");
 
@@ -182,12 +220,11 @@ app.post("/api/optimise", async (req, res) => {
     });
   } catch (err) {
     console.error("Optimise failed:", err?.message || err);
-    const status = (err?.status === 429 || /429|quota|RESOURCE_EXHAUSTED/i.test(String(err?.message))) ? 429 : 502;
-    res.status(status).json({
-      error:
-        status === 429
-          ? "Too many requests, please try again shortly."
-          : "Could not optimise your list right now. Please try again.",
+    const isRateLimit = err?.status === 429 || /429|quota|RESOURCE_EXHAUSTED/i.test(String(err?.message));
+    res.status(isRateLimit ? 429 : 502).json({
+      error: isRateLimit
+        ? "Too many requests, please try again shortly."
+        : (err?.message || "Could not optimise your list right now. Please try again."),
     });
   }
 });
