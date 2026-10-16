@@ -27,6 +27,89 @@ function App() {
 
   const [budget, setBudget] = useState(2000);
 
+  // FEEDBACK & REVIEWS STATE (Approach A: LocalStorage demo)
+  const [reviews, setReviews] = useState(() => {
+    try {
+      const saved = localStorage.getItem("grocery_app_reviews");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 1,
+        name: "Kunal Kanthe",
+        role: "BSc AI Student",
+        rating: 5,
+        tag: "Budget Savings",
+        comment: "The AI smartly swapped expensive items for high-protein pulses and eggs. Saved ₹278 without dropping protein!",
+        date: "Today",
+      },
+      {
+        id: 2,
+        name: "Shruthika More",
+        role: "Student Shopper",
+        rating: 5,
+        tag: "Protein Balance",
+        comment: "Very accurate nutrition tracking. Kept my daily protein above 90g while staying strictly under my ₹800 budget limit.",
+        date: "Yesterday",
+      },
+      {
+        id: 3,
+        name: "Rohan Patil",
+        role: "Hostel Student",
+        rating: 4,
+        tag: "Fast & Smart",
+        comment: "Optimizes in less than a second using Groq! Extremely helpful for hostel grocery management on a tight allowance.",
+        date: "3 days ago",
+      },
+    ];
+  });
+
+  const [feedbackForm, setFeedbackForm] = useState({
+    name: "",
+    rating: 5,
+    tag: "Budget Savings",
+    comment: "",
+  });
+  const [hoverRating, setHoverRating] = useState(0);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const handleReviewSubmit = (e) => {
+    e.preventDefault();
+    if (!feedbackForm.comment.trim()) return;
+
+    const newReview = {
+      id: Date.now(),
+      name: feedbackForm.name.trim() || "Kunal",
+      role: "Verified Shopper",
+      rating: feedbackForm.rating || 5,
+      tag: feedbackForm.tag || "General",
+      comment: feedbackForm.comment.trim(),
+      date: "Just now",
+    };
+
+    const updated = [newReview, ...reviews];
+    setReviews(updated);
+    try {
+      localStorage.setItem("grocery_app_reviews", JSON.stringify(updated));
+    } catch {}
+
+    setFeedbackForm({ name: "", rating: 5, tag: "Budget Savings", comment: "" });
+    setFeedbackSubmitted(true);
+    setTimeout(() => setFeedbackSubmitted(false), 4000);
+  };
+
+  const deleteReview = (id) => {
+    const updated = reviews.filter((r) => r.id !== id);
+    setReviews(updated);
+    try {
+      localStorage.setItem("grocery_app_reviews", JSON.stringify(updated));
+    } catch {}
+  };
+
+  const avgRating = reviews.length
+    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
+    : "5.0";
+
   const [newItem, setNewItem] = useState({
     name: "",
     quantity: 1,
@@ -276,8 +359,151 @@ function App() {
     ["💰", "Budget Planner"],
     ["🥗", "Nutrition"],
     ["📊", "Analytics"],
+    ["⭐", "Reviews & Feedback"],
     ["⚙️", "Settings"],
   ];
+
+  const renderFeedbackSection = () => (
+    <section className="panel feedback-panel" style={{ marginTop: "24px" }}>
+      <div className="panel-header feedback-header-bar">
+        <div>
+          <div className="title-row">
+            <h2>⭐ Community Feedback & AI Reviews</h2>
+            <span className="rating-badge">★ {avgRating} / 5.0</span>
+          </div>
+          <p>Real-time ratings & suggestions from shoppers using AI optimization</p>
+        </div>
+
+        <div className="feedback-stats-pill">
+          <strong>{reviews.length}</strong>
+          <span>Verified Reviews</span>
+        </div>
+      </div>
+
+      <div className="feedback-content-grid">
+        {/* REVIEW SUBMISSION FORM */}
+        <div className="review-form-card">
+          <div className="form-card-title">
+            <span>✍️</span>
+            <div>
+              <h3>Share Your Feedback</h3>
+              <small>Help us improve our AI optimization algorithm</small>
+            </div>
+          </div>
+
+          <form onSubmit={handleReviewSubmit}>
+            <div className="star-rating-box">
+              <label>Select Rating:</label>
+              <div className="stars-row">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    type="button"
+                    key={star}
+                    className={star <= (hoverRating || feedbackForm.rating) ? "star-btn active" : "star-btn"}
+                    onClick={() => setFeedbackForm({ ...feedbackForm, rating: star })}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    title={`${star} Star`}
+                  >
+                    ★
+                  </button>
+                ))}
+                <span className="star-feedback-text">
+                  {["", "1★ Poor", "2★ Fair", "3★ Good", "4★ Very Good", "5★ Excellent!"][hoverRating || feedbackForm.rating]}
+                </span>
+              </div>
+            </div>
+
+            <div className="form-fields-row">
+              <label>
+                Your Name
+                <input
+                  type="text"
+                  placeholder="e.g. Kunal Kanthe"
+                  value={feedbackForm.name}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, name: e.target.value })}
+                />
+              </label>
+
+              <label>
+                Topic
+                <select
+                  value={feedbackForm.tag}
+                  onChange={(e) => setFeedbackForm({ ...feedbackForm, tag: e.target.value })}
+                >
+                  <option>Budget Savings</option>
+                  <option>Protein Balance</option>
+                  <option>Substitutions</option>
+                  <option>Speed & UI</option>
+                  <option>General Feedback</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Your Review / Suggestion
+              <textarea
+                rows="3"
+                placeholder="How did the AI help with your budget, savings, or grocery substitutions?"
+                value={feedbackForm.comment}
+                onChange={(e) => setFeedbackForm({ ...feedbackForm, comment: e.target.value })}
+                required
+              />
+            </label>
+
+            {feedbackSubmitted && (
+              <div className="review-success-msg">
+                ✅ Thank you! Your review has been saved and displayed live.
+              </div>
+            )}
+
+            <button type="submit" className="primary-button submit-review-btn">
+              Submit Review ★
+            </button>
+          </form>
+        </div>
+
+        {/* REVIEWS LIST */}
+        <div className="reviews-list-card">
+          <div className="reviews-list-header">
+            <h3>Recent User Reviews</h3>
+            <span className="reviews-count-tag">{reviews.length} reviews</span>
+          </div>
+
+          <div className="reviews-scroll-area">
+            {reviews.map((r) => (
+              <div key={r.id} className="review-item-card">
+                <div className="review-top-row">
+                  <div className="reviewer-meta">
+                    <div className="avatar-review">{(r.name || "U")[0].toUpperCase()}</div>
+                    <div>
+                      <strong>{r.name}</strong>
+                      <small>{r.role || "Shopper"} • {r.date}</small>
+                    </div>
+                  </div>
+                  <div className="stars-display" title={`${r.rating} stars`}>
+                    {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
+                  </div>
+                </div>
+
+                <span className="review-badge-tag">{r.tag}</span>
+                <p className="review-quote-text">"{r.comment}"</p>
+
+                <button
+                  type="button"
+                  className="review-del-btn"
+                  onClick={() => deleteReview(r.id)}
+                  title="Remove this review"
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 
   return (
     <div className={darkMode ? "app dark" : "app"}>
@@ -1045,15 +1271,22 @@ function App() {
 
               </div>
 
+              {/* FEEDBACK & REVIEWS SECTION IN DASHBOARD */}
+              {renderFeedbackSection()}
+
             </>
           )}
 
+          {/* REVIEWS & FEEDBACK TAB */}
+          {activeTab === "Reviews & Feedback" && (
+            <div className="tab-feedback-container">
+              {renderFeedbackSection()}
+            </div>
+          )}
+
           {/* OTHER TABS */}
-
-          {activeTab !== "Dashboard" && (
-
+          {activeTab !== "Dashboard" && activeTab !== "Reviews & Feedback" && (
             <div className="placeholder-page">
-
               <div className="placeholder-icon">
                 {menuItems.find(
                   (item) => item[1] === activeTab
@@ -1077,9 +1310,7 @@ function App() {
                   ✨ Optimize Grocery List
                 </button>
               )}
-
             </div>
-
           )}
 
         </section>
